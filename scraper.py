@@ -8,7 +8,7 @@ from lxml import html
 
 
 class PastebinScraper(object):
-    def __init__(self, paste_limit):
+    def __init__(self, paste_limit=0):
         # TODO: Resilient requests import
         # TODO: Requests status code and reason
         # TODO: DB connector
@@ -78,5 +78,5 @@ class PastebinScraper(object):
 
 
 if __name__ == '__main__':
-    ps = PastebinScraper(paste_limit=0)
+    ps = PastebinScraper()
     ps.run()
