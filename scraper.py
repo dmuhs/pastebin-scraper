@@ -3,6 +3,8 @@
 import queue
 import requests
 import threading
+import logging
+import logging.handlers
 import time
 from lxml import html
 
@@ -19,6 +21,21 @@ class PastebinScraper(object):
         self.pastes = queue.Queue(maxsize=8)
         self.pastes_seen = set()
         self.workers = 2
+
+        # Init the logger
+        self.logger = logging.getLogger('pastebin-scraper')
+        self.logger.setLevel(logging.DEBUG)
+
+        # Set up log rotation
+        rotation = logging.handlers.RotatingFileHandler(
+            filename='pastebin-scraper.log',
+            maxBytes=2 * 1024 * 1024,
+            backupCount=3
+        )
+        rotation.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s|%(levelname)-8s| %(message)s')
+        rotation.setFormatter(formatter)
+        self.logger.addHandler(rotation)
 
     def _get_paste_data(self):
         paste_counter = 0
