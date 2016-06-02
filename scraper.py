@@ -8,10 +8,11 @@ from lxml import html
 
 
 class PastebinScraper(object):
-    def __init__(self, paste_limit=0):
+    def __init__(self, display_limit=100, paste_limit=0):
         # TODO: Resilient requests import
         # TODO: Requests status code and reason
         # TODO: DB connector
+        self.display_limit = display_limit
         self.paste_limit = paste_limit
         self.unlimited_pastes = paste_limit == 0
         self.PB_LINK = 'http://pastebin.com/'
@@ -63,7 +64,7 @@ class PastebinScraper(object):
                     name=paste[0],
                     lang=paste[1],
                     link=paste[2],
-                    data=data.content
+                    data=data.content[:self.display_limit]
                 ))
 
     def run(self):
