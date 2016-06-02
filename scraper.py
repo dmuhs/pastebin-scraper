@@ -14,6 +14,7 @@ class PastebinScraper(object):
         # TODO: DB connector
         # TODO: Unlimited pastes
         self.paste_limit = paste_limit
+        self.unlimited_pastes = paste_limit == 0
         self.PB_LINK = 'http://pastebin.com/'
         self.pastes = queue.Queue(maxsize=8)
         self.pastes_seen = set()
@@ -21,12 +22,12 @@ class PastebinScraper(object):
 
     def _get_paste_data(self):
         paste_counter = 0
-        while paste_counter < self.paste_limit:
+        while self.unlimited_pastes or (paste_counter < self.paste_limit):
             page = requests.get(self.PB_LINK)
             tree = html.fromstring(page.content)
             pastes = tree.cssselect('ul.right_menu li')
             for paste in pastes:
-                if paste_counter >= self.paste_limit:
+                if not self.unlimited_pastes and (paste_counter >= self.paste_limit):
                     # Break for limits % 8 != 0
                     break
                 name_link = paste.cssselect('a')[0]
@@ -45,6 +46,7 @@ class PastebinScraper(object):
                     delay = 1  # random.randrange(1, 5)
                     time.sleep(delay)
                     paste_counter += 1
+        print('Got ' + str(paste_counter) + ' pastes.')
 
     def _download_paste(self):
         while True:
@@ -76,5 +78,5 @@ class PastebinScraper(object):
 
 
 if __name__ == '__main__':
-    ps = PastebinScraper(paste_limit=2)
+    ps = PastebinScraper(paste_limit=0)
     ps.run()
