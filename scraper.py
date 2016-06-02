@@ -27,7 +27,8 @@ class PastebinScraper(object):
             tree = html.fromstring(page.content)
             pastes = tree.cssselect('ul.right_menu li')
             for paste in pastes:
-                if not self.unlimited_pastes and (paste_counter >= self.paste_limit):
+                if not self.unlimited_pastes \
+                   and (paste_counter >= self.paste_limit):
                     # Break for limits % 8 != 0
                     break
                 name_link = paste.cssselect('a')[0]
