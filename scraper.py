@@ -55,7 +55,7 @@ class PastebinScraper(object):
             if 'requesting a little bit too much' in data:
                 print('Throttling...')
                 self.pastes.put(paste)
-                time.sleep(0.1)
+                time.sleep(0.5)
             else:
                 print(('Name: {name}\n'
                        'Language: {lang}\n'
