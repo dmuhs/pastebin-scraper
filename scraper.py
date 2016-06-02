@@ -59,11 +59,11 @@ class PastebinScraper(object):
             else:
                 print(('Name: {name}\n'
                        'Language: {lang}\n'
-                       'Link:{link}\n'
+                       'Link: {link}\n'
                        '{data}\n').format(
                     name=paste[0],
                     lang=paste[1],
-                    link=paste[2],
+                    link=self.PB_LINK + paste[2],
                     data=data.content[:self.display_limit]
                 ))
 
