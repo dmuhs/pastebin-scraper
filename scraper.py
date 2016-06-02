@@ -87,11 +87,19 @@ class PastebinScraper(object):
     def _download_paste(self):
         while True:
             paste = self.pastes.get()  # (name, lang, href)
-            data = requests.get(self.PB_LINK + 'raw/' + paste[2])
+            self.logger.debug('Fetching raw paste %s...' % paste[2])
+            link = self.PB_LINK + 'raw/' + paste[2]
+            data = requests.get(link)
+            self.logger.debug('Fetched {} with {} - {}'.format(
+                link,
+                data.status_code,
+                data.reason
+            ))
             if 'requesting a little bit too much' in data:
-                print('Throttling...')
+                throttle_time = 0.5
+                self.logger.info('Throttling detected - waiting %ss' % throttle_time)
                 self.pastes.put(paste)
-                time.sleep(0.5)
+                time.sleep(throttle_time)
             else:
                 print(('Name: {name}\n'
                        'Language: {lang}\n'
