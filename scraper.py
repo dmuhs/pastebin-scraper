@@ -9,7 +9,6 @@ from lxml import html
 
 class PastebinScraper(object):
     def __init__(self, paste_limit):
-        # TODO: Paste limit
         # TODO: Resilient requests import
         # TODO: Requests status code and reason
         # TODO: DB connector
