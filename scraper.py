@@ -8,19 +8,16 @@ import time
 from lxml import html
 
 
-class CheckableQueue(queue.Queue):
-    def __contains__(self, item):
-        with self.mutex:
-            return item in self.queue
-
-
 class PastebinScraper(object):
     def __init__(self):
         # TODO: Paste limit
+        # TODO: Resilient requests import
+        # TODO: Requests status code and reason
         # TODO: DB connector
+        # TODO: Unlimited pastes
         self.PB_LINK = 'http://pastebin.com/'
-        self.pastes = CheckableQueue(maxsize=10)
-        self.paste_counter = 0
+        self.pastes = queue.Queue(maxsize=8)
+        self.pastes_seen = set()
         self.workers = 2
 
     def _parse_page_content(self):
