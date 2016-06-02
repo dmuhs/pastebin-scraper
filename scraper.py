@@ -3,7 +3,10 @@
 import queue
 import requests
 import threading
+import logging
+import logging.handlers
 import time
+from colorlog import ColoredFormatter
 from lxml import html
 
 
@@ -20,10 +23,40 @@ class PastebinScraper(object):
         self.pastes_seen = set()
         self.workers = 2
 
+        # Init the logger
+        self.logger = logging.getLogger('pastebin-scraper')
+        self.logger.setLevel(logging.DEBUG)
+
+        # Set up log rotation
+        rotation = logging.handlers.RotatingFileHandler(
+            filename='pastebin-scraper.log',
+            maxBytes=2 * 1024 * 1024,
+            backupCount=3
+        )
+        rotation.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s|%(levelname)-8s| %(message)s')
+        rotation.setFormatter(formatter)
+        self.logger.addHandler(rotation)
+
+        console = logging.StreamHandler()
+        console.setLevel(logging.INFO)
+        formatter = ColoredFormatter(
+            '%(log_color)s%(asctime)s|[%(levelname)-4s] %(message)s%(reset)s', '%H:%M:%S'
+        )
+        console.setFormatter(formatter)
+        self.logger.addHandler(console)
+
     def _get_paste_data(self):
         paste_counter = 0
+        self.logger.info('Unlimited pastes detected' if self.unlimited_pastes
+                         else 'Paste limit: ' + str(self.paste_limit))
         while self.unlimited_pastes or (paste_counter < self.paste_limit):
             page = requests.get(self.PB_LINK)
+            self.logger.debug('Got {} - {} from {}'.format(
+                page.status_code,
+                page.reason,
+                self.PB_LINK
+            ))
             tree = html.fromstring(page.content)
             pastes = tree.cssselect('ul.right_menu li')
             for paste in pastes:
@@ -40,22 +73,33 @@ class PastebinScraper(object):
                     # Got language
                     language = data[0]
                 paste_data = (name, language, href)
+                self.logger.debug('Paste scraped: ' + str(paste_data))
                 if paste_data[2] not in self.pastes_seen:
                     # New paste detected
+                    self.logger.debug('Scheduling new paste:' + str(paste_data))
                     self.pastes_seen.add(paste_data[2])
                     self.pastes.put(paste_data)
                     delay = 1  # random.randrange(1, 5)
                     time.sleep(delay)
                     paste_counter += 1
+                    self.logger.debug('Paste counter now at ' + str(paste_counter))
 
     def _download_paste(self):
         while True:
             paste = self.pastes.get()  # (name, lang, href)
-            data = requests.get(self.PB_LINK + 'raw/' + paste[2])
+            self.logger.debug('Fetching raw paste %s...' % paste[2])
+            link = self.PB_LINK + 'raw/' + paste[2]
+            data = requests.get(link)
+            self.logger.debug('Fetched {} with {} - {}'.format(
+                link,
+                data.status_code,
+                data.reason
+            ))
             if 'requesting a little bit too much' in data:
-                print('Throttling...')
+                throttle_time = 0.5
+                self.logger.info('Throttling detected - waiting %ss' % throttle_time)
                 self.pastes.put(paste)
-                time.sleep(0.5)
+                time.sleep(throttle_time)
             else:
                 print(('Name: {name}\n'
                        'Language: {lang}\n'
