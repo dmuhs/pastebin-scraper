@@ -25,7 +25,7 @@ class PastebinScraper(object):
         tree = html.fromstring(page.content)
         return tree.cssselect('ul.right_menu li')
 
-    def _scrape_pastes(self):
+    def _get_paste_data(self):
         pastes = self._parse_page_content()
         for paste in pastes:
             name_link = paste.cssselect('a')[0]
@@ -40,7 +40,7 @@ class PastebinScraper(object):
 
     def _output_pastes(self):
         # TODO: Output in sys.stdout, MySQL
-        for p in self._scrape_pastes():
+        for p in self._get_paste_data():
             print('Name: {name}\nLanguage: {lang}\nLink: {link}\n'.format(**{
                 'name': p[0],
                 'lang': p[1],
