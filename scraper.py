@@ -47,17 +47,9 @@ class PastebinScraper(object):
                 delay = random.randrange(1, 5)
                 time.sleep(delay)
 
-    def _output_pastes(self):
-        # TODO: Output in sys.stdout, MySQL
-        for p in self._get_paste_data():
-            print('Name: {name}\nLanguage: {lang}\nLink: {link}\n'.format(**{
-                'name': p[0],
-                'lang': p[1],
-                'link': p[2]
-            }))
 
     def run(self):
-        self._output_pastes()
+        pass
 
 
 if __name__ == '__main__':
