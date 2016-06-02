@@ -46,7 +46,6 @@ class PastebinScraper(object):
                     delay = 1  # random.randrange(1, 5)
                     time.sleep(delay)
                     paste_counter += 1
-        print('Got ' + str(paste_counter) + ' pastes.')
 
     def _download_paste(self):
         while True:
