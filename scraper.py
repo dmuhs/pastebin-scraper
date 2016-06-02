@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import queue
+import random
 import requests
+import time
 from lxml import html
 
 
@@ -17,6 +19,7 @@ class PastebinScraper(object):
         # TODO: DB connector
         self.PB_LINK = 'http://pastebin.com/'
         self.pastes = CheckableQueue(maxsize=10)
+        self.paste_counter = 0
 
     def _parse_page_content(self):
         # TODO: Make import more resilient
@@ -38,7 +41,11 @@ class PastebinScraper(object):
                 language = data[0]
             paste_data = (name, language, href)
             if paste_data not in self.pastes:
+                # New paste detected
                 self.pastes.put(paste_data)
+                self.paste_counter += 1
+                delay = random.randrange(1, 5)
+                time.sleep(delay)
 
     def _output_pastes(self):
         # TODO: Output in sys.stdout, MySQL
