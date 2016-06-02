@@ -47,6 +47,21 @@ class PastebinScraper(object):
                 delay = random.randrange(1, 5)
                 time.sleep(delay)
 
+    def _download_paste(self):
+        while True:
+            paste = self.pastes.get()  # (name, lang, href)
+            data = requests.get(self.PB_LINK + 'raw/' + paste[2])
+            if 'requesting a little bit too much' in data:
+                print('Throttling...')
+                self.pastes.put(paste)
+                time.sleep(0.1)
+            else:
+                print('Name: {name}\nLanguage: {lang}\nLink:{link}\n{data}'.format(
+                    name=paste[0],
+                    lang=paste[1],
+                    link=paste[2],
+                    data=data
+                ))
 
     def run(self):
         pass
