@@ -30,13 +30,15 @@ class PastebinScraper(object):
         for paste in pastes:
             name_link = paste.cssselect('a')[0]
             name = name_link.text_content()
-            href = name_link.get('href')[1:]  # Get rid of leading /
+            href = self.PB_LINK + name_link.get('href')[1:]  # Get rid of leading /
             data = paste.cssselect('span')[0].text_content().split('|')
             language = None
             if len(data) == 2:
                 # Got language
                 language = data[0]
-            yield (name, language, self.PB_LINK + href)
+            paste_data = (name, language, href)
+            if paste_data not in self.pastes:
+                self.pastes.put(paste_data)
 
     def _output_pastes(self):
         # TODO: Output in sys.stdout, MySQL
