@@ -12,7 +12,6 @@ class PastebinScraper(object):
         # TODO: Resilient requests import
         # TODO: Requests status code and reason
         # TODO: DB connector
-        # TODO: Unlimited pastes
         self.paste_limit = paste_limit
         self.unlimited_pastes = paste_limit == 0
         self.PB_LINK = 'http://pastebin.com/'
