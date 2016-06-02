@@ -5,6 +5,7 @@ import requests
 import threading
 import logging
 import logging.handlers
+import sys
 import time
 import configparser
 from colorlog import ColoredFormatter
@@ -95,9 +96,9 @@ class PastebinScraper(object):
 
     def _download_paste(self):
         while True:
-            p = self.pastes.get()  # (name, lang, href)
-            self.logger.debug('Fetching raw paste %s...' % p[2])
-            link = self.conf_general['PBLink'] + 'raw/' + p[2]
+            paste = self.pastes.get()  # (name, lang, href)
+            self.logger.debug('Fetching raw paste %s...' % paste[2])
+            link = self.conf_general['PBLink'] + 'raw/' + paste[2]
             data = requests.get(link)
             self.logger.debug('Fetched {} with {} - {}'.format(
                 link,
@@ -107,24 +108,28 @@ class PastebinScraper(object):
             if 'requesting a little bit too much' in data:
                 throttle_time = self.conf_general.getint('RequestThrottleTime')
                 self.logger.info('Throttling detected - waiting %ss' % throttle_time)
-                self.pastes.put(p)
+                self.pastes.put(paste)
                 time.sleep(throttle_time)
             else:
-                output = ''
-                if self.conf_stdout.getboolean('ShowName'):
-                    output += 'Name: %s\n' % p[0]
-                if self.conf_stdout.getboolean('ShowLang'):
-                    output += 'Lang: %s\n' % p[1]
-                if self.conf_stdout.getboolean('ShowLink'):
-                    output += 'Link: %s\n' % self.conf_general['PBLink'] + p[2]
-                if self.conf_stdout.getboolean('ShowData'):
-                    encoding = self.conf_stdout['DataEncoding']
-                    limit = self.conf_stdout.getint('ContentDisplayLimit')
-                    if limit > 0:
-                        output += '\n\n%s' % data.content.decode(encoding)[:limit]
-                    else:
-                        output += '\n\n%s' % data.content.decode(encoding)
-                print(output)
+                if self.conf_stdout.getboolean('Enable'):
+                    self._write_to_stdout(paste, data)
+
+    def _write_to_stdout(self, paste, data):
+        output = ''
+        if self.conf_stdout.getboolean('ShowName'):
+            output += 'Name: %s\n' % paste[0]
+        if self.conf_stdout.getboolean('ShowLang'):
+            output += 'Lang: %s\n' % paste[1]
+        if self.conf_stdout.getboolean('ShowLink'):
+            output += 'Link: %s\n' % (self.conf_general['PBLink'] + paste[2])
+        if self.conf_stdout.getboolean('ShowData'):
+            encoding = self.conf_stdout['DataEncoding']
+            limit = self.conf_stdout.getint('ContentDisplayLimit')
+            if limit > 0:
+                output += '\n%s\n\n' % data.content.decode(encoding)[:limit]
+            else:
+                output += '\n%s\n\n' % data.content.decode(encoding)
+        print(output)
 
     def run(self):
         for i in range(self.conf_general.getint('DownloadWorkers')):
