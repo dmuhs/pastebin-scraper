@@ -6,6 +6,7 @@ import threading
 import logging
 import logging.handlers
 import time
+from colorlog import ColoredFormatter
 from lxml import html
 
 
@@ -36,6 +37,14 @@ class PastebinScraper(object):
         formatter = logging.Formatter('%(asctime)s|%(levelname)-8s| %(message)s')
         rotation.setFormatter(formatter)
         self.logger.addHandler(rotation)
+
+        console = logging.StreamHandler()
+        console.setLevel(logging.INFO)
+        formatter = ColoredFormatter(
+            '%(log_color)s%(asctime)s|[%(levelname)-4s] %(message)s%(reset)s', '%H:%M:%S'
+        )
+        console.setFormatter(formatter)
+        self.logger.addHandler(console)
 
     def _get_paste_data(self):
         paste_counter = 0
