@@ -3,6 +3,7 @@
 import queue
 import random
 import requests
+import threading
 import time
 from lxml import html
 
@@ -20,6 +21,7 @@ class PastebinScraper(object):
         self.PB_LINK = 'http://pastebin.com/'
         self.pastes = CheckableQueue(maxsize=10)
         self.paste_counter = 0
+        self.workers = 2
 
     def _parse_page_content(self):
         # TODO: Make import more resilient
@@ -64,7 +66,13 @@ class PastebinScraper(object):
                 ))
 
     def run(self):
-        pass
+        for i in range(self.workers):
+            t = threading.Thread(target=self._download_paste)
+            t.setDaemon(True)
+            t.start()
+        s = threading.Thread(target=self._get_paste_data)
+        s.start()
+        s.join()
 
 
 if __name__ == '__main__':
