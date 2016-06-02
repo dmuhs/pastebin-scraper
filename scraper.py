@@ -76,7 +76,7 @@ class PastebinScraper(object):
                 self.logger.debug('Paste scraped: ' + str(paste_data))
                 if paste_data[2] not in self.pastes_seen:
                     # New paste detected
-                    self.logger.info('Scheduling new paste:' + str(paste_data))
+                    self.logger.debug('Scheduling new paste:' + str(paste_data))
                     self.pastes_seen.add(paste_data[2])
                     self.pastes.put(paste_data)
                     delay = 1  # random.randrange(1, 5)
