@@ -6,22 +6,28 @@ import threading
 import logging
 import logging.handlers
 import time
+import configparser
 from colorlog import ColoredFormatter
 from lxml import html
 
 
 class PastebinScraper(object):
-    def __init__(self, display_limit=100, paste_limit=0):
+    def __init__(self):
         # TODO: Resilient requests import
-        # TODO: Requests status code and reason
         # TODO: DB connector
-        self.display_limit = display_limit
-        self.paste_limit = paste_limit
-        self.unlimited_pastes = paste_limit == 0
-        self.PB_LINK = 'http://pastebin.com/'
+
+        # Read and split config
+        self.config = configparser.ConfigParser()
+        self.config.read('settings.ini')
+        self.conf_general = self.config['GENERAL']
+        self.conf_logging = self.config['LOGGING']
+        self.conf_stdout = self.config['STDOUT']
+        self.conf_file = self.config['FILE']
+
+        # Internals
+        self.unlimited_pastes = self.conf_general.getint('PasteLimit') == 0
         self.pastes = queue.Queue(maxsize=8)
         self.pastes_seen = set()
-        self.workers = 2
 
         # Init the logger
         self.logger = logging.getLogger('pastebin-scraper')
@@ -29,9 +35,9 @@ class PastebinScraper(object):
 
         # Set up log rotation
         rotation = logging.handlers.RotatingFileHandler(
-            filename='pastebin-scraper.log',
-            maxBytes=2 * 1024 * 1024,
-            backupCount=3
+            filename=self.conf_logging['RotationLog'],
+            maxBytes=self.conf_logging.getint('MaxRotationSize'),
+            backupCount=self.conf_logging.getint('RotationBackupCount')
         )
         rotation.setLevel(logging.DEBUG)
         formatter = logging.Formatter('%(asctime)s|%(levelname)-8s| %(message)s')
@@ -47,21 +53,24 @@ class PastebinScraper(object):
         self.logger.addHandler(console)
 
     def _get_paste_data(self):
+        paste_limit = self.conf_general.getint('PasteLimit')
+        pb_link = self.conf_general['PBLINK']
         paste_counter = 0
         self.logger.info('Unlimited pastes detected' if self.unlimited_pastes
-                         else 'Paste limit: ' + str(self.paste_limit))
-        while self.unlimited_pastes or (paste_counter < self.paste_limit):
-            page = requests.get(self.PB_LINK)
+                         else 'Paste limit: ' + str(paste_limit))
+
+        while self.unlimited_pastes or (paste_counter < paste_limit):
+            page = requests.get(pb_link)
             self.logger.debug('Got {} - {} from {}'.format(
                 page.status_code,
                 page.reason,
-                self.PB_LINK
+                pb_link
             ))
             tree = html.fromstring(page.content)
             pastes = tree.cssselect('ul.right_menu li')
             for paste in pastes:
                 if not self.unlimited_pastes \
-                   and (paste_counter >= self.paste_limit):
+                   and (paste_counter >= paste_limit):
                     # Break for limits % 8 != 0
                     break
                 name_link = paste.cssselect('a')[0]
@@ -79,16 +88,16 @@ class PastebinScraper(object):
                     self.logger.debug('Scheduling new paste:' + str(paste_data))
                     self.pastes_seen.add(paste_data[2])
                     self.pastes.put(paste_data)
-                    delay = 1  # random.randrange(1, 5)
+                    delay = self.conf_general.getint('NewPasteCheckInterval')
                     time.sleep(delay)
                     paste_counter += 1
                     self.logger.debug('Paste counter now at ' + str(paste_counter))
 
     def _download_paste(self):
         while True:
-            paste = self.pastes.get()  # (name, lang, href)
-            self.logger.debug('Fetching raw paste %s...' % paste[2])
-            link = self.PB_LINK + 'raw/' + paste[2]
+            p = self.pastes.get()  # (name, lang, href)
+            self.logger.debug('Fetching raw paste %s...' % p[2])
+            link = self.conf_general['PBLink'] + 'raw/' + p[2]
             data = requests.get(link)
             self.logger.debug('Fetched {} with {} - {}'.format(
                 link,
@@ -96,23 +105,29 @@ class PastebinScraper(object):
                 data.reason
             ))
             if 'requesting a little bit too much' in data:
-                throttle_time = 0.5
+                throttle_time = self.conf_general.getint('RequestThrottleTime')
                 self.logger.info('Throttling detected - waiting %ss' % throttle_time)
-                self.pastes.put(paste)
+                self.pastes.put(p)
                 time.sleep(throttle_time)
             else:
-                print(('Name: {name}\n'
-                       'Language: {lang}\n'
-                       'Link: {link}\n'
-                       '{data}\n').format(
-                    name=paste[0],
-                    lang=paste[1],
-                    link=self.PB_LINK + paste[2],
-                    data=data.content.decode('utf-8')[:self.display_limit]
-                ))
+                output = ''
+                if self.conf_stdout.getboolean('ShowName'):
+                    output += 'Name: %s\n' % p[0]
+                if self.conf_stdout.getboolean('ShowLang'):
+                    output += 'Lang: %s\n' % p[1]
+                if self.conf_stdout.getboolean('ShowLink'):
+                    output += 'Link: %s\n' % self.conf_general['PBLink'] + p[2]
+                if self.conf_stdout.getboolean('ShowData'):
+                    encoding = self.conf_stdout['DataEncoding']
+                    limit = self.conf_stdout.getint('ContentDisplayLimit')
+                    if limit > 0:
+                        output += '\n\n%s' % data.content.decode(encoding)[:limit]
+                    else:
+                        output += '\n\n%s' % data.content.decode(encoding)
+                print(output)
 
     def run(self):
-        for i in range(self.workers):
+        for i in range(self.conf_general.getint('DownloadWorkers')):
             t = threading.Thread(target=self._download_paste)
             t.setDaemon(True)
             t.start()
