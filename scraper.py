@@ -129,7 +129,7 @@ class PastebinScraper(object):
                 output += '\n%s\n\n' % data.content.decode(encoding)[:limit]
             else:
                 output += '\n%s\n\n' % data.content.decode(encoding)
-        print(output)
+        sys.stdout.write(output)
 
     def run(self):
         for i in range(self.conf_general.getint('DownloadWorkers')):
