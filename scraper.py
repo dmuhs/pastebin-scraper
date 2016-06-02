@@ -56,7 +56,10 @@ class PastebinScraper(object):
                 self.pastes.put(paste)
                 time.sleep(0.1)
             else:
-                print('Name: {name}\nLanguage: {lang}\nLink:{link}\n{data}'.format(
+                print(('Name: {name}\n'
+                       'Language: {lang}\n'
+                       'Link:{link}\n'
+                       '{data}\n').format(
                     name=paste[0],
                     lang=paste[1],
                     link=paste[2],
