@@ -33,7 +33,7 @@ class PastebinScraper(object):
         for paste in pastes:
             name_link = paste.cssselect('a')[0]
             name = name_link.text_content()
-            href = self.PB_LINK + name_link.get('href')[1:]  # Get rid of leading /
+            href = name_link.get('href')[1:]  # Get rid of leading /
             data = paste.cssselect('span')[0].text_content().split('|')
             language = None
             if len(data) == 2:
