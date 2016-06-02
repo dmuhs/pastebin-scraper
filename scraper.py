@@ -62,7 +62,7 @@ class PastebinScraper(object):
                     name=paste[0],
                     lang=paste[1],
                     link=paste[2],
-                    data=data
+                    data=data.content
                 ))
 
     def run(self):
