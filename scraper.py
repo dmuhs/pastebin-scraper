@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 
+import queue
 import requests
 from lxml import html
+
+
+class CheckableQueue(queue.Queue):
+    def __contains__(self, item):
+        with self.mutex:
+            return item in self.queue
 
 
 class PastebinScraper(object):
@@ -9,6 +16,7 @@ class PastebinScraper(object):
         # TODO: Paste limit
         # TODO: DB connector
         self.PB_LINK = 'http://pastebin.com/'
+        self.pastes = CheckableQueue(maxsize=10)
 
     def _parse_page_content(self):
         # TODO: Make import more resilient
