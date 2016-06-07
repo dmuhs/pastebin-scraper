@@ -136,6 +136,19 @@ class PastebinScraper(object):
         console.setFormatter(formatter)
         self.logger.addHandler(console)
 
+        # DB connectors if needed
+        self.mysql_conn = None
+        if self.conf_mysql.getboolean('Enable'):
+            # At least one DB system is activated
+            self.mysql_conn = PasteDBConnector(
+                db='MYSQL',
+                host=self.conf_mysql['Host'],
+                port=self.conf_mysql['Port'],
+                username=self.conf_mysql['Username'],
+                password=self.conf_mysql['Password'],
+                table_name=self.conf_mysql['DBName']
+            )
+
     def _get_paste_data(self):
         paste_limit = self.conf_general.getint('PasteLimit')
         pb_link = self.conf_general['PBLINK']
@@ -213,6 +226,9 @@ class PastebinScraper(object):
             else:
                 output += '\n%s\n\n' % data.content.decode(encoding)
         sys.stdout.write(output)
+
+    def _write_to_mysql(self, paste, data):
+        self.mysql_conn.add(paste, data)
 
     def run(self):
         for i in range(self.conf_general.getint('DownloadWorkers')):
