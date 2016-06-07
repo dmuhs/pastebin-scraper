@@ -44,6 +44,6 @@ Define all required specs in `settings.ini`. Should you decide to go with a data
 
 ---
 
-I hereby officially challenge @DanAmador to throw machine learning at this and build something cool!
+I hereby officially challenge [@DanAmador](https://github.com/danamador) to throw machine learning at this and build something cool!
 
 Inspiration for this scraper was taken from [here](http://www.michielovertoom.com/python/pastebin-abused/).
