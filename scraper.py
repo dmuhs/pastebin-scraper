@@ -8,14 +8,97 @@ import logging.handlers
 import sys
 import time
 import configparser
+from datetime import datetime
 from colorlog import ColoredFormatter
 from lxml import html
+
+
+class PasteDBConnector(object):
+    supported = ('MYSQL', )
+
+    def __init__(self, db, host, port, username, password, table_name):
+        try:
+            self.logger = logging.getLogger('pastebin-scraper')
+            from sqlalchemy.ext.declarative import declarative_base
+        except ImportError:
+            self.logger.error('SQLAlchemy import failed. Make sure the SQLAlchemy Python library '
+                              'is installed! To check your existing installation run: '
+                              'python3 -c "import sqlalchemy;print(sqlalchemy.__version__)"')
+        if db not in self.supported:
+            self.logger.error('The specified' + self.db + 'database is not supported. Supported '
+                              'engines are: ' + ", ".join(self.supported))
+            raise ValueError('The specified' + self.db + 'database is not supported')
+        self.db = db
+        self.Base = declarative_base()
+        self.engine = self._get_db_engine(host, port, username, password, table_name)
+        self.session = self._get_db_session(self.engine)
+        self.paste_model = self._get_paste_model(self.Base, table_name)
+        self.Base.metadata.create_all(self.engine)
+
+    def _get_db_engine(self, host, port, username, password, table_name):
+        from sqlalchemy import create_engine
+        if self.db == 'MYSQL':
+            # use the mysql-python connector
+            location = 'mysql+pymysql://'
+            location += '{username}:{password}@{host}:{port}'.format(
+                host=host,
+                port=port,
+                username=username,
+                password=password,
+            )
+            location += '/{table_name}?charset={charset}'.format(
+                table_name=table_name,
+                charset='utf8'
+            )
+            self.logger.info('Using MySQL at ' + location)
+            return create_engine(location)
+
+    def _get_db_session(self, engine):
+        from sqlalchemy.orm import sessionmaker
+        return sessionmaker(bind=engine)()
+
+    def _get_paste_model(self, base, table_name):
+        from sqlalchemy import Column, Integer, String, DateTime
+        from sqlalchemy.dialects.mysql import LONGTEXT
+
+        class Paste(base):
+            __tablename__ = table_name
+
+            id = Column(Integer, primary_key=True)
+            name = Column('name', String(60))
+            lang = Column('language', String(30))
+            link = Column('link', String(28))  # Assuming format http://pastebin.com/XXXXXXXX
+            date = Column('date', DateTime())
+            data = Column('data', LONGTEXT(charset='utf8'))
+
+            def __repr__(self):
+                return "<Paste(id=%s, name='%s', lang='%s', link='%s', date='%s', data='%s')" %\
+                       (self.id,
+                        self.name,
+                        self.lang,
+                        self.link,
+                        str(self.date),
+                        self.data[:10])
+
+        return Paste
+
+    def add(self, paste, data):
+        # TODO: More logging and exception handling
+        model = self.paste_model(
+            name=paste[0],
+            lang=paste[1],
+            link=paste[2],
+            date=datetime.now(),
+            data=data.content.replace(b'\\', b'\\\\').decode('unicode-escape')
+        )
+        self.logger.debug('Adding model ' + str(model))
+        self.session.add(model)
+        self.session.commit()
 
 
 class PastebinScraper(object):
     def __init__(self):
         # TODO: Resilient requests import
-        # TODO: DB connector
 
         # Read and split config
         self.config = configparser.ConfigParser()
@@ -23,7 +106,7 @@ class PastebinScraper(object):
         self.conf_general = self.config['GENERAL']
         self.conf_logging = self.config['LOGGING']
         self.conf_stdout = self.config['STDOUT']
-        self.conf_file = self.config['FILE']
+        self.conf_mysql = self.config['MYSQL']
 
         # Internals
         self.unlimited_pastes = self.conf_general.getint('PasteLimit') == 0
@@ -53,11 +136,24 @@ class PastebinScraper(object):
         console.setFormatter(formatter)
         self.logger.addHandler(console)
 
+        # DB connectors if needed
+        self.mysql_conn = None
+        if self.conf_mysql.getboolean('Enable'):
+            # At least one DB system is activated
+            self.mysql_conn = PasteDBConnector(
+                db='MYSQL',
+                host=self.conf_mysql['Host'],
+                port=self.conf_mysql['Port'],
+                username=self.conf_mysql['Username'],
+                password=self.conf_mysql['Password'],
+                table_name=self.conf_mysql['DBName']
+            )
+
     def _get_paste_data(self):
         paste_limit = self.conf_general.getint('PasteLimit')
         pb_link = self.conf_general['PBLINK']
         paste_counter = 0
-        self.logger.info('Unlimited pastes detected' if self.unlimited_pastes
+        self.logger.info('No scrape limit set - scraping indefinitely' if self.unlimited_pastes
                          else 'Paste limit: ' + str(paste_limit))
 
         while self.unlimited_pastes or (paste_counter < paste_limit):
@@ -93,11 +189,13 @@ class PastebinScraper(object):
                     time.sleep(delay)
                     paste_counter += 1
                     self.logger.debug('Paste counter now at ' + str(paste_counter))
+                    if paste_counter % 100 == 0:
+                        self.logger.info('Scheduled %d pastes' % paste_counter)
 
     def _download_paste(self):
         while True:
             paste = self.pastes.get()  # (name, lang, href)
-            self.logger.debug('Fetching raw paste %s...' % paste[2])
+            self.logger.debug('Fetching raw paste ' + paste[2])
             link = self.conf_general['PBLink'] + 'raw/' + paste[2]
             data = requests.get(link)
             self.logger.debug('Fetched {} with {} - {}'.format(
@@ -105,14 +203,19 @@ class PastebinScraper(object):
                 data.status_code,
                 data.reason
             ))
-            if 'requesting a little bit too much' in data:
+            if b'requesting a little bit too much' in data.content:
                 throttle_time = self.conf_general.getint('RequestThrottleTime')
                 self.logger.info('Throttling detected - waiting %ss' % throttle_time)
                 self.pastes.put(paste)
                 time.sleep(throttle_time)
+            elif data.status_code == 403 and b'Pastebin.com has blocked your IP' in data.content:
+                self.logger.info('Our IP has been blocked. Trying again in an hour.')
+                time.sleep(self.conf_general.getint('IPBlockedWaitTime'))
             else:
                 if self.conf_stdout.getboolean('Enable'):
                     self._write_to_stdout(paste, data)
+                if self.conf_mysql.getboolean('Enable'):
+                    self._write_to_mysql(paste, data)
 
     def _write_to_stdout(self, paste, data):
         output = ''
@@ -130,6 +233,9 @@ class PastebinScraper(object):
             else:
                 output += '\n%s\n\n' % data.content.decode(encoding)
         sys.stdout.write(output)
+
+    def _write_to_mysql(self, paste, data):
+        self.mysql_conn.add(paste, data)
 
     def run(self):
         for i in range(self.conf_general.getint('DownloadWorkers')):
