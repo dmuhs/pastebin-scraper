@@ -83,6 +83,7 @@ class PasteDBConnector(object):
         return Paste
 
     def add(self, paste, data):
+        # TODO: More logging and exception handling
         model = self.paste_model(
             name=paste[0],
             lang=paste[1],
@@ -98,7 +99,6 @@ class PasteDBConnector(object):
 class PastebinScraper(object):
     def __init__(self):
         # TODO: Resilient requests import
-        # TODO: DB connector
 
         # Read and split config
         self.config = configparser.ConfigParser()
@@ -153,7 +153,7 @@ class PastebinScraper(object):
         paste_limit = self.conf_general.getint('PasteLimit')
         pb_link = self.conf_general['PBLINK']
         paste_counter = 0
-        self.logger.info('Unlimited pastes detected' if self.unlimited_pastes
+        self.logger.info('No scrape limit set - scraping indefinitely' if self.unlimited_pastes
                          else 'Paste limit: ' + str(paste_limit))
 
         while self.unlimited_pastes or (paste_counter < paste_limit):
@@ -190,12 +190,12 @@ class PastebinScraper(object):
                     paste_counter += 1
                     self.logger.debug('Paste counter now at ' + str(paste_counter))
                     if paste_counter % 100 == 0:
-                        self.logger.info('Scheduled %d pastes.' % paste_counter)
+                        self.logger.info('Scheduled %d pastes' % paste_counter)
 
     def _download_paste(self):
         while True:
             paste = self.pastes.get()  # (name, lang, href)
-            self.logger.debug('Fetching raw paste %s...' % paste[2])
+            self.logger.debug('Fetching raw paste ' + paste[2])
             link = self.conf_general['PBLink'] + 'raw/' + paste[2]
             data = requests.get(link)
             self.logger.debug('Fetched {} with {} - {}'.format(
