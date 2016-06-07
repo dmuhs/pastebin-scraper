@@ -5,7 +5,8 @@ This is a multithreaded scraping script for [Pastebin](http://pastebin.com/). It
 ### Installation
 The usual dance.
 ```
-pip install -r requirements.txt```
+pip install -r requirements.txt
+```
 
 Define all required specs in `settings.ini`. Should you decide to go with a database output, make sure the respective connector is installed. At the moment only MySQL with `pymysql` are supported.
 
