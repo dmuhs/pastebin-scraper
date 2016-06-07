@@ -189,6 +189,8 @@ class PastebinScraper(object):
                     time.sleep(delay)
                     paste_counter += 1
                     self.logger.debug('Paste counter now at ' + str(paste_counter))
+                    if paste_counter % 100 == 0:
+                        self.logger.info('Scheduled %d pastes.' % paste_counter)
 
     def _download_paste(self):
         while True:
@@ -201,14 +203,19 @@ class PastebinScraper(object):
                 data.status_code,
                 data.reason
             ))
-            if 'requesting a little bit too much' in data:
+            if b'requesting a little bit too much' in data.content:
                 throttle_time = self.conf_general.getint('RequestThrottleTime')
                 self.logger.info('Throttling detected - waiting %ss' % throttle_time)
                 self.pastes.put(paste)
                 time.sleep(throttle_time)
+            elif data.status_code == 403 and b'Pastebin.com has blocked your IP' in data.content:
+                self.logger.info('Our IP has been blocked. Trying again in an hour.')
+                time.sleep(self.conf_general.getint('IPBlockedWaitTime'))
             else:
                 if self.conf_stdout.getboolean('Enable'):
                     self._write_to_stdout(paste, data)
+                if self.conf_mysql.getboolean('Enable'):
+                    self._write_to_mysql(paste, data)
 
     def _write_to_stdout(self, paste, data):
         output = ''
