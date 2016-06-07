@@ -203,12 +203,7 @@ class PastebinScraper(object):
                 data.status_code,
                 data.reason
             ))
-            if b'requesting a little bit too much' in data.content:
-                throttle_time = self.conf_general.getint('RequestThrottleTime')
-                self.logger.info('Throttling detected - waiting %ss' % throttle_time)
-                self.pastes.put(paste)
-                time.sleep(throttle_time)
-            elif data.status_code == 403 and b'Pastebin.com has blocked your IP' in data.content:
+            if data.status_code == 403 and b'Pastebin.com has blocked your IP' in data.content:
                 self.logger.info('Our IP has been blocked. Trying again in an hour.')
                 time.sleep(self.conf_general.getint('IPBlockedWaitTime'))
             else:
