@@ -106,7 +106,7 @@ class PastebinScraper(object):
         self.conf_general = self.config['GENERAL']
         self.conf_logging = self.config['LOGGING']
         self.conf_stdout = self.config['STDOUT']
-        self.conf_file = self.config['FILE']
+        self.conf_mysql = self.config['MYSQL']
 
         # Internals
         self.unlimited_pastes = self.conf_general.getint('PasteLimit') == 0
