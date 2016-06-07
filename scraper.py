@@ -8,8 +8,91 @@ import logging.handlers
 import sys
 import time
 import configparser
+from datetime import datetime
 from colorlog import ColoredFormatter
 from lxml import html
+
+
+class PasteDBConnector(object):
+    supported = ('MYSQL', )
+
+    def __init__(self, db, host, port, username, password, table_name):
+        try:
+            self.logger = logging.getLogger('pastebin-scraper')
+            from sqlalchemy.ext.declarative import declarative_base
+        except ImportError:
+            self.logger.error('SQLAlchemy import failed. Make sure the SQLAlchemy Python library '
+                              'is installed! To check your existing installation run: '
+                              'python3 -c "import sqlalchemy;print(sqlalchemy.__version__)"')
+        if db not in self.supported:
+            self.logger.error('The specified' + self.db + 'database is not supported. Supported '
+                              'engines are: ' + ", ".join(self.supported))
+            raise ValueError('The specified' + self.db + 'database is not supported')
+        self.db = db
+        self.Base = declarative_base()
+        self.engine = self._get_db_engine(host, port, username, password, table_name)
+        self.session = self._get_db_session(self.engine)
+        self.paste_model = self._get_paste_model(self.Base, table_name)
+        self.Base.metadata.create_all(self.engine)
+
+    def _get_db_engine(self, host, port, username, password, table_name):
+        from sqlalchemy import create_engine
+        if self.db == 'MYSQL':
+            # use the mysql-python connector
+            location = 'mysql+pymysql://'
+            location += '{username}:{password}@{host}:{port}'.format(
+                host=host,
+                port=port,
+                username=username,
+                password=password,
+            )
+            location += '/{table_name}?charset={charset}'.format(
+                table_name=table_name,
+                charset='utf8'
+            )
+            self.logger.info('Using MySQL at ' + location)
+            return create_engine(location)
+
+    def _get_db_session(self, engine):
+        from sqlalchemy.orm import sessionmaker
+        return sessionmaker(bind=engine)()
+
+    def _get_paste_model(self, base, table_name):
+        from sqlalchemy import Column, Integer, String, DateTime
+        from sqlalchemy.dialects.mysql import LONGTEXT
+
+        class Paste(base):
+            __tablename__ = table_name
+
+            id = Column(Integer, primary_key=True)
+            name = Column('name', String(60))
+            lang = Column('language', String(30))
+            link = Column('link', String(28))  # Assuming format http://pastebin.com/XXXXXXXX
+            date = Column('date', DateTime())
+            data = Column('data', LONGTEXT(charset='utf8'))
+
+            def __repr__(self):
+                return "<Paste(id=%s, name='%s', lang='%s', link='%s', date='%s', data='%s')" %\
+                       (self.id,
+                        self.name,
+                        self.lang,
+                        self.link,
+                        str(self.date),
+                        self.data[:10])
+
+        return Paste
+
+    def add(self, paste, data):
+        model = self.paste_model(
+            name=paste[0],
+            lang=paste[1],
+            link=paste[2],
+            date=datetime.now(),
+            data=data.content.replace(b'\\', b'\\\\').decode('unicode-escape')
+        )
+        self.logger.debug('Adding model ' + str(model))
+        self.session.add(model)
+        self.session.commit()
 
 
 class PastebinScraper(object):
