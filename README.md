@@ -1,6 +1,6 @@
 ## pastebin-scraper
 
-This is a multithreaded scraping script for [Pastebin](http://pastebin.com/). It scrapes the main site for new scrapes, downloads their raw content and processes them by a user-defined output format.
+This is a multithreaded scraping script for [Pastebin](http://pastebin.com/). It scrapes the main site for new pastes, downloads their raw content and processes them by a user-defined output format.
 
 ### Installation
 The usual dance.
