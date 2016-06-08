@@ -5,10 +5,12 @@ import requests
 import threading
 import logging
 import logging.handlers
+import os
 import sys
 import time
 import configparser
 from datetime import datetime
+from os import path
 from colorlog import ColoredFormatter
 from lxml import html
 
@@ -107,11 +109,15 @@ class PastebinScraper(object):
         self.conf_logging = self.config['LOGGING']
         self.conf_stdout = self.config['STDOUT']
         self.conf_mysql = self.config['MYSQL']
+        self.conf_file = self.config['FILE']
 
         # Internals
         self.unlimited_pastes = self.conf_general.getint('PasteLimit') == 0
         self.pastes = queue.Queue(maxsize=8)
         self.pastes_seen = set()
+
+        if not path.exists('output'):
+            os.mkdir('output')
 
         # Init the logger
         self.logger = logging.getLogger('pastebin-scraper')
@@ -211,26 +217,39 @@ class PastebinScraper(object):
                     self._write_to_stdout(paste, data)
                 if self.conf_mysql.getboolean('Enable'):
                     self._write_to_mysql(paste, data)
+                if self.conf_file.getboolean('Enable'):
+                    self._write_to_file(paste, data)
 
-    def _write_to_stdout(self, paste, data):
+    def _assemble_output(self, conf, paste, data):
         output = ''
-        if self.conf_stdout.getboolean('ShowName'):
+        if conf.getboolean('ShowName'):
             output += 'Name: %s\n' % paste[0]
-        if self.conf_stdout.getboolean('ShowLang'):
+        if conf.getboolean('ShowLang'):
             output += 'Lang: %s\n' % paste[1]
-        if self.conf_stdout.getboolean('ShowLink'):
+        if conf.getboolean('ShowLink'):
             output += 'Link: %s\n' % (self.conf_general['PBLink'] + paste[2])
-        if self.conf_stdout.getboolean('ShowData'):
-            encoding = self.conf_stdout['DataEncoding']
-            limit = self.conf_stdout.getint('ContentDisplayLimit')
+        if conf.getboolean('ShowData'):
+            encoding = conf['DataEncoding']
+            limit = conf.getint('ContentDisplayLimit')
             if limit > 0:
                 output += '\n%s\n\n' % data.content.decode(encoding)[:limit]
             else:
                 output += '\n%s\n\n' % data.content.decode(encoding)
+        return output
+
+    def _write_to_stdout(self, paste, data):
+        output = self._assemble_output(self.conf_stdout, paste, data)
         sys.stdout.write(output)
 
     def _write_to_mysql(self, paste, data):
         self.mysql_conn.add(paste, data)
+
+    def _write_to_file(self, paste, data):
+        # Date and paste ID
+        fname = '%s_%s.txt' % (datetime.now().strftime('%Y-%m-%d.%H-%M-%S'), paste[2])
+        with open(path.join('output', fname), 'w') as f:
+            output = self._assemble_output(self.conf_file, paste, data)
+            f.write(output)
 
     def run(self):
         for i in range(self.conf_general.getint('DownloadWorkers')):
