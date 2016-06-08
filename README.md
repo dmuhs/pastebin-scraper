@@ -25,7 +25,7 @@ Define all required specs in `settings.ini`. Should you decide to go with a data
 - `MaxRotationSize` Size in bytes before another log file is created
 - `RotationBackupCount` Maximum number of log files to keep
 
-#### STDOUT
+#### STDOUT/ FILE
 - `Enable` Enable formatted stdout output of paste data
 - `ContentDisplayLimit` Maximum amount of characters to show before content is cut off (0 to display all)
 - `ShowName` Display the paste name
