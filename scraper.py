@@ -220,21 +220,25 @@ class PastebinScraper(object):
                 if self.conf_file.getboolean('Enable'):
                     self._write_to_file(paste, data)
 
-    def _write_to_stdout(self, paste, data):
+    def _assemble_output(self, conf, paste, data):
         output = ''
-        if self.conf_stdout.getboolean('ShowName'):
+        if conf.getboolean('ShowName'):
             output += 'Name: %s\n' % paste[0]
-        if self.conf_stdout.getboolean('ShowLang'):
+        if conf.getboolean('ShowLang'):
             output += 'Lang: %s\n' % paste[1]
-        if self.conf_stdout.getboolean('ShowLink'):
+        if conf.getboolean('ShowLink'):
             output += 'Link: %s\n' % (self.conf_general['PBLink'] + paste[2])
-        if self.conf_stdout.getboolean('ShowData'):
-            encoding = self.conf_stdout['DataEncoding']
-            limit = self.conf_stdout.getint('ContentDisplayLimit')
+        if conf.getboolean('ShowData'):
+            encoding = conf['DataEncoding']
+            limit = conf.getint('ContentDisplayLimit')
             if limit > 0:
                 output += '\n%s\n\n' % data.content.decode(encoding)[:limit]
             else:
                 output += '\n%s\n\n' % data.content.decode(encoding)
+        return output
+
+    def _write_to_stdout(self, paste, data):
+        output = self._assemble_output(self.conf_stdout, paste, data)
         sys.stdout.write(output)
 
     def _write_to_mysql(self, paste, data):
@@ -244,20 +248,7 @@ class PastebinScraper(object):
         # Date and paste ID
         fname = '%s_%s.txt' % (datetime.now().strftime('%Y-%m-%d.%H-%M-%S'), paste[2])
         with open(path.join('output', fname), 'w') as f:
-            output = ''
-            if self.conf_file.getboolean('ShowName'):
-                output += 'Name: %s\n' % paste[0]
-            if self.conf_file.getboolean('ShowLang'):
-                output += 'Lang: %s\n' % paste[1]
-            if self.conf_file.getboolean('ShowLink'):
-                output += 'Link: %s\n' % (self.conf_general['PBLink'] + paste[2])
-            if self.conf_file.getboolean('ShowData'):
-                encoding = self.conf_file['DataEncoding']
-                limit = self.conf_file.getint('ContentDisplayLimit')
-                if limit > 0:
-                    output += '\n%s\n\n' % data.content.decode(encoding)[:limit]
-                else:
-                    output += '\n%s\n\n' % data.content.decode(encoding)
+            output = self._assemble_output(self.conf_file, paste, data)
             f.write(output)
 
     def run(self):
