@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 
-import queue
-import requests
-import threading
 import logging
 import logging.handlers
 import os
 import sys
+import threading
 import time
-import configparser
 from datetime import datetime
 from os import path
-from colorlog import ColoredFormatter
+
+import requests
 from lxml import html
+
+import configparser
+import queue
+from colorlog import ColoredFormatter
 
 
 class PasteDBConnector(object):
@@ -98,7 +100,6 @@ class PasteDBConnector(object):
         return Paste
 
     def add(self, paste, data):
-        # TODO: More logging and exception handling
         model = self.paste_model(
             name=paste[0],
             lang=paste[1],
@@ -107,14 +108,18 @@ class PasteDBConnector(object):
             data=data.content.replace(b'\\', b'\\\\').decode('unicode-escape')
         )
         self.logger.debug('Adding model ' + str(model))
-        self.session.add(model)
-        self.session.commit()
+        try:
+            self.session.add(model)
+            self.session.commit()
+        except:
+            self.logger.error(
+                'An error occurred while adding a paste to %s: %s' %
+                (self.db, sys.exc_info()[0])
+            )
 
 
 class PastebinScraper(object):
     def __init__(self):
-        # TODO: Resilient requests import
-
         # Read and split config
         self.config = configparser.ConfigParser()
         self.config.read('settings.ini')
@@ -129,9 +134,6 @@ class PastebinScraper(object):
         self.unlimited_pastes = self.conf_general.getint('PasteLimit') == 0
         self.pastes = queue.Queue(maxsize=8)
         self.pastes_seen = set()
-
-        if not path.exists('output'):
-            os.mkdir('output')
 
         # Init the logger
         self.logger = logging.getLogger('pastebin-scraper')
@@ -156,10 +158,22 @@ class PastebinScraper(object):
         console.setFormatter(formatter)
         self.logger.addHandler(console)
 
+        if not (self.conf_stdout.getboolean('Enable') or self.conf_mysql.getboolean('Enable')
+                or self.conf_sqlite.getboolean('Enable') or self.conf_file.getboolean('Enable')):
+            self.logger.error('No output method specified! Please set at least one output method '
+                              'in the settings.ini to \'yes\'.')
+            raise RuntimeError('No output method specified!')
+
+        # Create File output folder if needed
+        if not path.exists('output') and self.conf_file.getboolean('Enable'):
+            self.logger.debug('Creating new output directory')
+            os.mkdir('output')
+
         # DB connectors if needed
         self.mysql_conn = None
         self.sqlite_conn = None
         if self.conf_mysql.getboolean('Enable'):
+            self.logger.debug('Initializing MySQL connector')
             self.mysql_conn = PasteDBConnector(
                 db='MYSQL',
                 host=self.conf_mysql['Host'],
@@ -169,6 +183,7 @@ class PastebinScraper(object):
                 table_name=self.conf_mysql['TableName']
             )
         if self.conf_sqlite.getboolean('Enable'):
+            self.logger.debug('Initializing SQLite connector')
             self.sqlite_conn = PasteDBConnector(
                 db='SQLITE',
                 filename=self.conf_sqlite['Filename'],
