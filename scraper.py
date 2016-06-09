@@ -16,9 +16,9 @@ from lxml import html
 
 
 class PasteDBConnector(object):
-    supported = ('MYSQL', )
+    supported = ('MYSQL', 'SQLITE')
 
-    def __init__(self, db, host, port, username, password, table_name):
+    def __init__(self, db, **kwargs):
         try:
             self.logger = logging.getLogger('pastebin-scraper')
             from sqlalchemy.ext.declarative import declarative_base
@@ -32,46 +32,59 @@ class PasteDBConnector(object):
             raise ValueError('The specified' + self.db + 'database is not supported')
         self.db = db
         self.Base = declarative_base()
-        self.engine = self._get_db_engine(host, port, username, password, table_name)
+        self.engine = self._get_db_engine(**kwargs)
         self.session = self._get_db_session(self.engine)
-        self.paste_model = self._get_paste_model(self.Base, table_name)
+        self.paste_model = self._get_paste_model(self.Base, **kwargs)
         self.Base.metadata.create_all(self.engine)
 
-    def _get_db_engine(self, host, port, username, password, table_name):
+    def _get_db_engine(self, **kwargs):
         from sqlalchemy import create_engine
+        # TODO: Add SQLite
         if self.db == 'MYSQL':
             # use the mysql-python connector
             location = 'mysql+pymysql://'
             location += '{username}:{password}@{host}:{port}'.format(
-                host=host,
-                port=port,
-                username=username,
-                password=password,
+                host=kwargs.pop('host'),
+                port=kwargs.pop('port'),
+                username=kwargs.pop('username'),
+                password=kwargs.pop('password'),
             )
             location += '/{table_name}?charset={charset}'.format(
-                table_name=table_name,
+                table_name=kwargs.pop('table_name'),
                 charset='utf8'
             )
             self.logger.info('Using MySQL at ' + location)
+            return create_engine(location)
+        elif self.db == 'SQLITE':
+            location = 'sqlite+pysqlite:///' + kwargs.pop('filename')
+            self.logger.info('Using SQLite at ' + location)
             return create_engine(location)
 
     def _get_db_session(self, engine):
         from sqlalchemy.orm import sessionmaker
         return sessionmaker(bind=engine)()
 
-    def _get_paste_model(self, base, table_name):
+    def _get_paste_model(self, base, **kwargs):
+        db = self.db
+
         from sqlalchemy import Column, Integer, String, DateTime
-        from sqlalchemy.dialects.mysql import LONGTEXT
+        if db == 'MYSQL':
+            from sqlalchemy.dialects.mysql import LONGTEXT
+        elif db == 'SQLITE':
+            from sqlalchemy import UnicodeText
 
         class Paste(base):
-            __tablename__ = table_name
+            __tablename__ = kwargs.pop('table_name')
 
             id = Column(Integer, primary_key=True)
             name = Column('name', String(60))
             lang = Column('language', String(30))
             link = Column('link', String(28))  # Assuming format http://pastebin.com/XXXXXXXX
             date = Column('date', DateTime())
-            data = Column('data', LONGTEXT(charset='utf8'))
+            if db == 'MYSQL':
+                data = Column('data', LONGTEXT(charset='utf8'))
+            else:
+                data = Column('data', UnicodeText())
 
             def __repr__(self):
                 return "<Paste(id=%s, name='%s', lang='%s', link='%s', date='%s', data='%s')" %\
@@ -109,6 +122,7 @@ class PastebinScraper(object):
         self.conf_logging = self.config['LOGGING']
         self.conf_stdout = self.config['STDOUT']
         self.conf_mysql = self.config['MYSQL']
+        self.conf_sqlite = self.config['SQLITE']
         self.conf_file = self.config['FILE']
 
         # Internals
@@ -144,15 +158,21 @@ class PastebinScraper(object):
 
         # DB connectors if needed
         self.mysql_conn = None
+        self.sqlite_conn = None
         if self.conf_mysql.getboolean('Enable'):
-            # At least one DB system is activated
             self.mysql_conn = PasteDBConnector(
                 db='MYSQL',
                 host=self.conf_mysql['Host'],
                 port=self.conf_mysql['Port'],
                 username=self.conf_mysql['Username'],
                 password=self.conf_mysql['Password'],
-                table_name=self.conf_mysql['DBName']
+                table_name=self.conf_mysql['TableName']
+            )
+        if self.conf_sqlite.getboolean('Enable'):
+            self.sqlite_conn = PasteDBConnector(
+                db='SQLITE',
+                filename=self.conf_sqlite['Filename'],
+                table_name=self.conf_sqlite['TableName']
             )
 
     def _get_paste_data(self):
@@ -219,6 +239,8 @@ class PastebinScraper(object):
                     self._write_to_mysql(paste, data)
                 if self.conf_file.getboolean('Enable'):
                     self._write_to_file(paste, data)
+                if self.conf_sqlite.getboolean('Enable'):
+                    self._write_to_sqlite(paste, data)
 
     def _assemble_output(self, conf, paste, data):
         output = ''
@@ -243,6 +265,9 @@ class PastebinScraper(object):
 
     def _write_to_mysql(self, paste, data):
         self.mysql_conn.add(paste, data)
+
+    def _write_to_sqlite(self, paste, data):
+        self.sqlite_conn.add(paste, data)
 
     def _write_to_file(self, paste, data):
         # Date and paste ID
