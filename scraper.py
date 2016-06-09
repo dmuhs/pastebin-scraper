@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 
-import queue
-import requests
-import threading
 import logging
 import logging.handlers
 import os
 import sys
+import threading
 import time
-import configparser
 from datetime import datetime
 from os import path
-from colorlog import ColoredFormatter
+
+import requests
 from lxml import html
+
+import configparser
+import queue
+from colorlog import ColoredFormatter
 
 
 class PasteDBConnector(object):
