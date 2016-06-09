@@ -198,7 +198,8 @@ class PastebinScraper(object):
                          else 'Paste limit: ' + str(paste_limit))
 
         while self.unlimited_pastes or (paste_counter < paste_limit):
-            page = requests.get(pb_link)
+            page = self._handle_data_download(pb_link)
+
             self.logger.debug('Got {} - {} from {}'.format(
                 page.status_code,
                 page.reason,
@@ -238,7 +239,8 @@ class PastebinScraper(object):
             paste = self.pastes.get()  # (name, lang, href)
             self.logger.debug('Fetching raw paste ' + paste[2])
             link = self.conf_general['PBLink'] + 'raw/' + paste[2]
-            data = requests.get(link)
+            data = self._handle_data_download(link)
+
             self.logger.debug('Fetched {} with {} - {}'.format(
                 link,
                 data.status_code,
@@ -256,6 +258,21 @@ class PastebinScraper(object):
                     self._write_to_file(paste, data)
                 if self.conf_sqlite.getboolean('Enable'):
                     self._write_to_sqlite(paste, data)
+
+    def _handle_data_download(self, link):
+        while True:
+            try:
+                data = requests.get(link)
+            except:
+                retry = self.conf_general.getint('ConnectionRetryInterval')
+                self.logger.debug(
+                    'Error connecting to %s: Retry in %ss, TRACE: %s' %
+                    (link, retry, sys.exc_info())
+                )
+                self.logger.info('Connection problems - trying again in %ss' % retry)
+                time.sleep(retry)
+            else:
+                return data
 
     def _assemble_output(self, conf, paste, data):
         output = ''
