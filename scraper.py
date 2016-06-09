@@ -198,7 +198,18 @@ class PastebinScraper(object):
                          else 'Paste limit: ' + str(paste_limit))
 
         while self.unlimited_pastes or (paste_counter < paste_limit):
-            page = requests.get(pb_link)
+            try:
+                page = requests.get(pb_link)
+            except:
+                retry = self.conf_general.getint('ConnectionRetryInterval')
+                self.logger.debug(
+                    'Error connecting to %s: Retry in %ss, TRACE: %s' %
+                    (pb_link, retry, sys.exc_info())
+                )
+                self.logger.info('Connection problems - trying again in %ss' % retry)
+                time.sleep(retry)
+                continue
+
             self.logger.debug('Got {} - {} from {}'.format(
                 page.status_code,
                 page.reason,
