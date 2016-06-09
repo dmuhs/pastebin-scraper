@@ -132,9 +132,6 @@ class PastebinScraper(object):
         self.pastes = queue.Queue(maxsize=8)
         self.pastes_seen = set()
 
-        if not path.exists('output'):
-            os.mkdir('output')
-
         # Init the logger
         self.logger = logging.getLogger('pastebin-scraper')
         self.logger.setLevel(logging.DEBUG)
@@ -157,6 +154,10 @@ class PastebinScraper(object):
         )
         console.setFormatter(formatter)
         self.logger.addHandler(console)
+
+        # Create File output folder if needed
+        if not path.exists('output') and self.conf_file.getboolean('Enable'):
+            os.mkdir('output')
 
         # DB connectors if needed
         self.mysql_conn = None
