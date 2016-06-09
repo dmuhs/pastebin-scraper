@@ -158,6 +158,12 @@ class PastebinScraper(object):
         console.setFormatter(formatter)
         self.logger.addHandler(console)
 
+        if not (self.conf_stdout.getboolean('Enable') or self.conf_mysql.getboolean('Enable')
+                or self.conf_sqlite.getboolean('Enable') or self.conf_file.getboolean('Enable')):
+            self.logger.error('No output method specified! Please set at least one output method '
+                              'in the settings.ini to \'yes\'.')
+            raise RuntimeError('No output method specified!')
+
         # Create File output folder if needed
         if not path.exists('output') and self.conf_file.getboolean('Enable'):
             self.logger.debug('Creating new output directory')
