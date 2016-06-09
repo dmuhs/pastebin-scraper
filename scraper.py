@@ -115,8 +115,6 @@ class PasteDBConnector(object):
 
 class PastebinScraper(object):
     def __init__(self):
-        # TODO: Resilient requests import
-
         # Read and split config
         self.config = configparser.ConfigParser()
         self.config.read('settings.ini')
