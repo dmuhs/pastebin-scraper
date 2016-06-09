@@ -8,7 +8,9 @@ The usual dance.
 pip install -r requirements.txt
 ```
 
-Define all required specs in `settings.ini`. Should you decide to go with a database output, make sure the respective connector is installed. At the moment only MySQL with `pymysql` are supported.
+Define all required specs in `settings.ini`. Should you decide to go with a database output, make sure the respective connector is installed. At the moment MySQL with `pymysql` and SQLite with the standard built in Python 3 connector are supported.
+
+Also note that the file output creates a subdirectory `output` and dumps every paste as a separate file into it.
 
 ### Settings
 `ini` is a highly underrated file format. Here are some definitions on what the settings parameter actually do.
@@ -36,11 +38,16 @@ Define all required specs in `settings.ini`. Should you decide to go with a data
 
 #### MYSQL
 - `Enable` Enable MySQL output
-- `DBName` Database name to insert data into
+- `TableName` Main table name to insert data into
 - `Host` MySQL server host
 - `Port` MySQL server port
 - `Username` MySQL server user
 - `Password` User password
+
+#### SQLITE
+- `Enable` Enable SQLite output
+- `Filename` Filename the db should be saved as (usually ends with .db)
+- `TableName` Main table name to insert data into
 
 ---
 
