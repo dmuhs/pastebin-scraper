@@ -160,12 +160,14 @@ class PastebinScraper(object):
 
         # Create File output folder if needed
         if not path.exists('output') and self.conf_file.getboolean('Enable'):
+            self.logger.debug('Creating new output directory')
             os.mkdir('output')
 
         # DB connectors if needed
         self.mysql_conn = None
         self.sqlite_conn = None
         if self.conf_mysql.getboolean('Enable'):
+            self.logger.debug('Initializing MySQL connector')
             self.mysql_conn = PasteDBConnector(
                 db='MYSQL',
                 host=self.conf_mysql['Host'],
@@ -175,6 +177,7 @@ class PastebinScraper(object):
                 table_name=self.conf_mysql['TableName']
             )
         if self.conf_sqlite.getboolean('Enable'):
+            self.logger.debug('Initializing SQLite connector')
             self.sqlite_conn = PasteDBConnector(
                 db='SQLITE',
                 filename=self.conf_sqlite['Filename'],
