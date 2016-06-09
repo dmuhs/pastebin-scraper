@@ -27,9 +27,10 @@ class PasteDBConnector(object):
                               'is installed! To check your existing installation run: '
                               'python3 -c "import sqlalchemy;print(sqlalchemy.__version__)"')
         if db not in self.supported:
-            self.logger.error('The specified' + self.db + 'database is not supported. Supported '
-                              'engines are: ' + ", ".join(self.supported))
-            raise ValueError('The specified' + self.db + 'database is not supported')
+            msg = 'The specified database %s is not supported. Please chose an engine from %s' % \
+                  (db, ', '.join(self.supported))
+            self.logger.error(msg)
+            raise ValueError(msg)
         self.db = db
         self.Base = declarative_base()
         self.engine = self._get_db_engine(**kwargs)
