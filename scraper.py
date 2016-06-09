@@ -39,7 +39,6 @@ class PasteDBConnector(object):
 
     def _get_db_engine(self, **kwargs):
         from sqlalchemy import create_engine
-        # TODO: Add SQLite
         if self.db == 'MYSQL':
             # use the mysql-python connector
             location = 'mysql+pymysql://'
