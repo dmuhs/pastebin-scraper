@@ -249,7 +249,18 @@ class PastebinScraper(object):
             paste = self.pastes.get()  # (name, lang, href)
             self.logger.debug('Fetching raw paste ' + paste[2])
             link = self.conf_general['PBLink'] + 'raw/' + paste[2]
-            data = requests.get(link)
+            try:
+                data = requests.get(link)
+            except:
+                retry = self.conf_general.getint('ConnectionRetryInterval')
+                self.logger.debug(
+                    'Error connecting to %s: Retry in %ss, TRACE: %s' %
+                    (link, retry, sys.exc_info())
+                )
+                self.logger.info('Connection problems - trying again in %ss' % retry)
+                time.sleep(retry)
+                continue
+
             self.logger.debug('Fetched {} with {} - {}'.format(
                 link,
                 data.status_code,
