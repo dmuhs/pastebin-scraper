@@ -100,7 +100,6 @@ class PasteDBConnector(object):
         return Paste
 
     def add(self, paste, data):
-        # TODO: More logging and exception handling
         model = self.paste_model(
             name=paste[0],
             lang=paste[1],
@@ -109,8 +108,14 @@ class PasteDBConnector(object):
             data=data.content.replace(b'\\', b'\\\\').decode('unicode-escape')
         )
         self.logger.debug('Adding model ' + str(model))
-        self.session.add(model)
-        self.session.commit()
+        try:
+            self.session.add(model)
+            self.session.commit()
+        except:
+            self.logger.error(
+                'An error occurred while adding a paste to %s: %s' %
+                (self.db, sys.exc_info()[0])
+            )
 
 
 class PastebinScraper(object):
