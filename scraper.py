@@ -213,13 +213,13 @@ class PastebinScraper(object):
                     # Break for limits % 8 != 0
                     break
                 name_link = paste.cssselect('a')[0]
-                name = name_link.text_content()
+                name = name_link.text_content().strip()
                 href = name_link.get('href')[1:]  # Get rid of leading /
                 data = paste.cssselect('span')[0].text_content().split('|')
                 language = None
                 if len(data) == 2:
                     # Got language
-                    language = data[0]
+                    language = data[0].strip()
                 paste_data = (name, language, href)
                 self.logger.debug('Paste scraped: ' + str(paste_data))
                 if paste_data[2] not in self.pastes_seen:
