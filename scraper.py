@@ -246,18 +246,14 @@ class PastebinScraper(object):
                 data.status_code,
                 data.reason
             ))
-            if data.status_code == 403 and b'Pastebin.com has blocked your IP' in data.content:
-                self.logger.info('Our IP has been blocked. Trying again in an hour.')
-                time.sleep(self.conf_general.getint('IPBlockedWaitTime'))
-            else:
-                if self.conf_stdout.getboolean('Enable'):
-                    self._write_to_stdout(paste, data)
-                if self.conf_mysql.getboolean('Enable'):
-                    self._write_to_mysql(paste, data)
-                if self.conf_file.getboolean('Enable'):
-                    self._write_to_file(paste, data)
-                if self.conf_sqlite.getboolean('Enable'):
-                    self._write_to_sqlite(paste, data)
+            if self.conf_stdout.getboolean('Enable'):
+                self._write_to_stdout(paste, data)
+            if self.conf_mysql.getboolean('Enable'):
+                self._write_to_mysql(paste, data)
+            if self.conf_file.getboolean('Enable'):
+                self._write_to_file(paste, data)
+            if self.conf_sqlite.getboolean('Enable'):
+                self._write_to_sqlite(paste, data)
 
     def _handle_data_download(self, link):
         while True:
@@ -272,6 +268,9 @@ class PastebinScraper(object):
                 self.logger.info('Connection problems - trying again in %ss' % retry)
                 time.sleep(retry)
             else:
+                if data.status_code == 403 and b'Pastebin.com has blocked your IP' in data.content:
+                    self.logger.info('Our IP has been blocked. Trying again in an hour.')
+                    time.sleep(self.conf_general.getint('IPBlockedWaitTime'))
                 return data
 
     def _assemble_output(self, conf, paste, data):
