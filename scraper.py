@@ -13,7 +13,11 @@ import requests
 from lxml import html
 
 import configparser
-import queue
+is_py2 = sys.version[0] == '2'
+if is_py2:
+    import Queue as queue
+else:
+    import queue as queue
 from colorlog import ColoredFormatter
 
 
