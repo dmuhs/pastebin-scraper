@@ -54,6 +54,6 @@ Also note that the file output creates a subdirectory `output` and dumps every p
 
 ---
 
-I hereby officially challenge [@DanAmador](https://github.com/danamador) to throw machine learning at this and build something cool!
+If you use this thing for some cool data analysis or even research, let me know if I can help!
 
 Inspiration for this scraper was taken from [here](http://www.michielovertoom.com/python/pastebin-abused/).
