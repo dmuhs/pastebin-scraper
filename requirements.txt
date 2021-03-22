@@ -1,3 +1,3 @@
-colorlog==4.7.2
+colorlog==4.8.0
 requests==2.25.1
 lxml==4.6.2
